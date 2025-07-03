@@ -18,7 +18,6 @@ class VideoProcessingRequest(BaseModel):
     n_clusters: Optional[int] = Field(default=None, description="Number of clusters")
     vid_stride: int = Field(default=1, ge=1, description="Video stride")
     save_crops: bool = Field(default=True, description="Save cropped images")
-    enable_clustering: bool = Field(default=True, description="Enable ReID clustering")
     enable_visualization: bool = Field(default=True, description="Enable visualization")
 
 class VideoProcessingResponse(BaseModel):

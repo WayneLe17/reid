@@ -23,7 +23,6 @@ async def process_video(
     n_clusters: int = Form(None),
     vid_stride: int = Form(1),
     save_crops: bool = Form(True),
-    enable_clustering: bool = Form(True),
     enable_visualization: bool = Form(True)
 ):
     if not file.filename:
@@ -62,7 +61,6 @@ async def process_video(
         'n_clusters': n_clusters,
         'vid_stride': vid_stride,
         'save_crops': save_crops,
-        'enable_clustering': enable_clustering,
         'enable_visualization': enable_visualization
     }
     

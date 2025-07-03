@@ -99,13 +99,19 @@ class ReIDService:
                 clusters[cluster_id] = []
             clusters[cluster_id].append(id_list[i])
         
+        tracking_to_cluster = {}
+        for i, cluster_id in enumerate(cluster_labels):
+            tracking_id = id_list[i]
+            tracking_to_cluster[tracking_id] = cluster_id
+        
         return {
             'cluster_labels': cluster_labels.tolist(),
             'id_list': id_list,
             'similarity_matrix': similarity_matrix.tolist(),
             'distance_matrix': distance_matrix.tolist(),
             'n_clusters_found': len(np.unique(cluster_labels)),
-            'clusters': clusters
+            'clusters': clusters,
+            'tracking_to_cluster': tracking_to_cluster
         }
 
     def process_clustering(self, crops_dir: str, distance_threshold: float = 0.2,

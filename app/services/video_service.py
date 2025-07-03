@@ -7,6 +7,7 @@ from typing import Dict, Optional, Any
 from app.services.tracking_service import TrackingService
 from app.services.reid_service import ReIDService
 from app.services.visualization_service import VisualizationService
+from app.services.analyzer_service import AnalyzerService
 from app.schemas.video import ProcessingStatus, VideoProcessingResult
 from app.core.config import settings
 
@@ -16,6 +17,7 @@ class VideoProcessingService:
         self.tracking_service = TrackingService()
         self.reid_service = ReIDService()
         self.visualization_service = VisualizationService()
+        self.analyzer_service = AnalyzerService()
 
     def create_task(self) -> str:
         task_id = str(uuid.uuid4())
@@ -72,8 +74,7 @@ class VideoProcessingService:
             )
             
             cluster_results = None
-            if request_params.get('enable_clustering', True) and crops_dir.exists():
-                # Step 2: Run clustering
+            if crops_dir.exists():
                 clustering_params = {
                     'crops_dir': str(crops_dir),
                     'distance_threshold': request_params.get('distance_threshold', 0.2),
@@ -84,7 +85,28 @@ class VideoProcessingService:
                     self.reid_service.process_clustering, **clustering_params
                 )
             
-            # Step 3: Create visualization
+            analysis_results = None
+            if cluster_results:
+                temp_video_path = str(task_output_dir / "temp_video.mp4")
+                
+                temp_visualization_params = {
+                    'video_path': video_path,
+                    'tracking_results_dir': str(results_dir),
+                    'output_path': temp_video_path,
+                    'cluster_results': cluster_results
+                }
+                
+                await asyncio.to_thread(
+                    self.visualization_service.process_video, **temp_visualization_params
+                )
+                
+                analysis_results = await asyncio.to_thread(
+                    self.analyzer_service.analyze_cluster_behaviors, temp_video_path, cluster_results
+                )
+                
+                if os.path.exists(temp_video_path):
+                    os.remove(temp_video_path)
+            
             output_video_path = None
             if request_params.get('enable_visualization', True):
                 output_video_path = str(task_output_dir / "output_video.mp4")
@@ -93,7 +115,8 @@ class VideoProcessingService:
                     'video_path': video_path,
                     'tracking_results_dir': str(results_dir),
                     'output_path': output_video_path,
-                    'cluster_results': cluster_results
+                    'cluster_results': cluster_results,
+                    'analysis_results': analysis_results
                 }
                 
                 visualization_results = await asyncio.to_thread(
@@ -109,6 +132,7 @@ class VideoProcessingService:
                 cluster_results=cluster_results,
                 processing_stats={
                     'tracking_stats': tracking_results.get('stats'),
+                    'analysis_results': analysis_results.model_dump() if analysis_results else None,
                     'visualization_stats': visualization_results if 'visualization_results' in locals() else None
                 },
                 completed_at=datetime.now().isoformat()

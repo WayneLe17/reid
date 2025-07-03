@@ -26,8 +26,12 @@ class Settings(BaseSettings):
     TRACKING_RESULTS_DIR: str = "tracking_results_frames"
     OUTPUT_DIR: str = "outputs"
     
-    MAX_FILE_SIZE: int = 500 * 1024 * 1024  # 500MB
+    MAX_FILE_SIZE: int = 500 * 1024 * 1024
     ALLOWED_VIDEO_EXTENSIONS: List[str] = [".mp4", ".avi", ".mov", ".mkv"]
+    
+    GOOGLE_API_KEY: str = ""
+    GEMINI_MODEL: str = "models/gemini-2.0-flash"
+    ANALYSIS_CHUNK_MINUTES: int = 1
     
     class Config:
         env_file = ".env"
