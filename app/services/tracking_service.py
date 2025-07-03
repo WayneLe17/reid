@@ -61,10 +61,6 @@ class TrackingService:
             return
         
         chunk_interval = int(self.fps * 60 * settings.ANALYSIS_CHUNK_MINUTES)
-        
-        if frame_number % chunk_interval != 0:
-            return
-        
         chunk_number = frame_number // chunk_interval
         
         if track_id not in self.chunk_crops:
