@@ -3,7 +3,7 @@ import cv2
 import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
+from app.core.config import settings
 class VisualizationService:
     def __init__(self):
         pass

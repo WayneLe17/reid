@@ -89,8 +89,6 @@ class VideoProcessingService:
                 cluster_results
             )
             
-            output_video_path = None
-            if request_params.get('enable_visualization', True):
                 output_video_path = str(task_output_dir / "output_video.mp4")
                 
                 visualization_params = {

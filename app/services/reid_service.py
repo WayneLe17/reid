@@ -97,7 +97,7 @@ class ReIDService:
         tracking_to_cluster = {}
         for i, cluster_id in enumerate(cluster_labels):
             tracking_id = id_list[i]
-            tracking_to_cluster[tracking_id] = cluster_id
+            tracking_to_cluster[tracking_id] = int(cluster_id)
         print(f"tracking_to_cluster: {tracking_to_cluster}")
         return {
             'cluster_labels': cluster_labels.tolist(),
