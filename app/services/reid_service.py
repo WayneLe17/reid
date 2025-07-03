@@ -39,11 +39,14 @@ class ReIDService:
         if not crops_path.exists():
             return id_images
         
-        id_folders = [f for f in crops_path.iterdir()]
+        id_folders = [f for f in crops_path.iterdir() if f.is_dir() and f.name.startswith('id_')]
         
-        for id_num, id_folder in enumerate(sorted(id_folders)):
-            id_images[id_num] = os.path.join(id_folder, "crop.jpg")
-        
+        for id_folder in sorted(id_folders):
+            tracking_id = int(id_folder.name.split('_')[1])
+            crop_path = id_folder / "crop.jpg"
+            
+            if crop_path.exists():
+                id_images[tracking_id] = crop_path
         return id_images
 
     def extract_features_batch(self, id_images: Dict[int, Path]) -> Tuple[np.ndarray, List[int]]:
@@ -90,8 +93,8 @@ class ReIDService:
         clusters = {}
         for i, cluster_id in enumerate(cluster_labels):
             if cluster_id not in clusters:
-                clusters[cluster_id] = []
-            clusters[cluster_id].append(id_list[i])
+                clusters[int(cluster_id)] = []
+            clusters[int(cluster_id)].append(id_list[i])
         
         tracking_to_cluster = {}
         for i, cluster_id in enumerate(cluster_labels):

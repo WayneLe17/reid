@@ -81,9 +81,8 @@ class AnalyzerService:
         
         behaviors = {}
         cluster_ids = set(int(cluster_id) for cluster_id in cluster_results['clusters'].keys())
-        
         for cluster_id in cluster_ids:
-            tracking_ids = cluster_results['clusters'].get(str(cluster_id), [])
+            tracking_ids = cluster_results['clusters'].get(cluster_id, [])
             
             chunk_crop_path = None
             for tracking_id in tracking_ids:
@@ -92,11 +91,7 @@ class AnalyzerService:
                     chunk_crop_path = potential_path
                     break
             
-            if chunk_crop_path:
-                action = self.analyze_single_crop(chunk_crop_path, cluster_id)
-                behaviors[cluster_id] = action
-            else:
-                behaviors[cluster_id] = ActionType.INACTIVE
+            behaviors[cluster_id] = self.analyze_single_crop(chunk_crop_path, cluster_id)
         
         class_activity = self.analyze_single_frame_activity(crops_dir, chunk_number)
         
@@ -211,10 +206,8 @@ class AnalyzerService:
         chunk_numbers = [int(f.stem.split('_')[2]) for f in chunk_files]
         chunk_numbers.sort()
         
-        # Calculate chunk frames for timing
         chunk_interval_frames = int(settings.ANALYSIS_CHUNK_MINUTES * 60 * 30)  # Assuming 30 FPS, should get from video
         
-        # Analyze each chunk and store results
         chunk_results = []
         
         for chunk_number in chunk_numbers:
