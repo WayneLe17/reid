@@ -81,7 +81,6 @@ class VideoProcessingService:
             cluster_results = await asyncio.to_thread(
                 self.reid_service.process_clustering, **clustering_params
             )
-            print(f"cluster_results: {cluster_results}")
             
             analysis_results = await asyncio.to_thread(
                 self.analyzer_service.analyze_cluster_behaviors_from_frames, 
@@ -89,19 +88,19 @@ class VideoProcessingService:
                 cluster_results
             )
             
-                output_video_path = str(task_output_dir / "output_video.mp4")
-                
-                visualization_params = {
-                    'video_path': video_path,
-                    'tracking_results_dir': str(results_dir),
-                    'output_path': output_video_path,
-                    'cluster_results': cluster_results,
-                    'analysis_results': analysis_results
-                }
-                
-                visualization_results = await asyncio.to_thread(
-                    self.visualization_service.process_video, **visualization_params
-                )
+            output_video_path = str(task_output_dir / "output_video.mp4")
+            
+            visualization_params = {
+                'video_path': video_path,
+                'tracking_results_dir': str(results_dir),
+                'output_path': output_video_path,
+                'cluster_results': cluster_results,
+                'analysis_results': analysis_results
+            }
+            
+            visualization_results = await asyncio.to_thread(
+                self.visualization_service.process_video, **visualization_params
+            )
             
             self.update_task_status(
                 task_id,

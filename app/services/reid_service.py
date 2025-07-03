@@ -51,7 +51,6 @@ class ReIDService:
         id_list = []
         
         for id_num, image_path in id_images.items():
-            print(f"extracting features for image_path: {image_path}")
             features = self.extract_features(image_path)
             if features is not None:
                 features_list.append(features)
@@ -98,7 +97,6 @@ class ReIDService:
         for i, cluster_id in enumerate(cluster_labels):
             tracking_id = id_list[i]
             tracking_to_cluster[tracking_id] = int(cluster_id)
-        print(f"tracking_to_cluster: {tracking_to_cluster}")
         return {
             'cluster_labels': cluster_labels.tolist(),
             'id_list': id_list,
@@ -116,8 +114,6 @@ class ReIDService:
             return None
         
         features, id_list = self.extract_features_batch(id_images)
-        # print(f"features: {features}")
-        print(f"id_list: {id_list}")
         if len(features) == 0:
             return None
         
