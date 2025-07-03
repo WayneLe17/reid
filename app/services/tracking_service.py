@@ -8,7 +8,8 @@ from boxmot.utils import TRACKER_CONFIGS
 from boxmot.engine.detectors import is_ultralytics_model
 from ultralytics import YOLO
 from ultralytics.utils import plotting
-
+from pathlib import Path
+    
 plotting.Annotator.box = lambda *args, **kwargs: None
 plotting.Annotator.box_label = lambda *args, **kwargs: None
 plotting.Annotator.line = lambda *args, **kwargs: None
@@ -33,7 +34,7 @@ class TrackingService:
         seconds = int(seconds % 60)
         return f"{minutes:02d}:{seconds:02d}"
 
-    def save_first_crop_only(self, track_id: int, bbox: List[float], frame_img, frame_num: int):
+    def save_first_crop_only(self, track_id: int, bbox: List[float], frame_img):
         if track_id in self.seen_ids:
             return
             
@@ -49,7 +50,6 @@ class TrackingService:
         if x2 > x1 and y2 > y1:
             self.id_crops[track_id] = {
                 'image': frame_img[y1:y2, x1:x2].copy(),
-                'frame_num': frame_num
             }
             self.seen_ids.add(track_id)
 
@@ -80,7 +80,7 @@ class TrackingService:
                 id_folder = os.path.join(crops_dir, f"id_{track_id}")
                 os.makedirs(id_folder, exist_ok=True)
                 
-                crop_filename = f"frame_{crop_data['frame_num']:06d}.jpg"
+                crop_filename = "crop.jpg"
                 crop_path = os.path.join(id_folder, crop_filename)
                 cv2.imwrite(crop_path, crop_data['image'])
         
@@ -105,7 +105,7 @@ class TrackingService:
                      conf: float = 0.5, iou: float = 0.7, imgsz: int = 640,
                      device: int = 0, classes: List[int] = [0], vid_stride: int = 1,
                      crops_dir: str = None, results_dir: str = None,
-                     save_crops: bool = True) -> Dict:
+                    ) -> Dict:
         
         self.frame_count = 0
         self.start_time = None
@@ -124,7 +124,7 @@ class TrackingService:
         tracker = create_tracker(
             tracking_method,
             tracking_config,
-            reid_model,
+            Path(reid_model),
             device,
             False,
             False,
@@ -145,7 +145,7 @@ class TrackingService:
             vid_stride=vid_stride,
             save=False,
             stream=True,
-            verbose=False,
+            verbose=True,
         )
         
         for result in results:
@@ -166,8 +166,7 @@ class TrackingService:
                         }
                         frame_detections.append(detection)
                         
-                        if save_crops:
-                            self.save_first_crop_only(track_id_int, bbox, result.orig_img, self.frame_count)
+                        self.save_first_crop_only(track_id_int, bbox, result.orig_img)
             
             if results_dir and frame_detections:
                 self.frame_results.append({

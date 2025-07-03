@@ -7,6 +7,7 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from boxmot.appearance.reid.auto_backend import ReidAutoBackend
 from app.core.config import settings
+import os
 
 class ReIDService:
     def __init__(self, reid_model_path: str = None, device: int = None):
@@ -15,7 +16,7 @@ class ReIDService:
         self.reid_model = ReidAutoBackend(
             weights=Path(self.reid_model_path),
             device=self.device,
-            half=False
+            half=True if self.device == 0 else False
         ).model
 
     def extract_features(self, image_path: str) -> Optional[np.ndarray]:
@@ -38,17 +39,10 @@ class ReIDService:
         if not crops_path.exists():
             return id_images
         
-        id_folders = [f for f in crops_path.iterdir() if f.is_dir() and f.name.startswith('id_')]
+        id_folders = [f for f in crops_path.iterdir()]
         
-        for id_folder in sorted(id_folders):
-            id_num = int(id_folder.name.split('_')[1])
-            
-            image_files = list(id_folder.glob('*.jpg'))
-            image_files.extend(list(id_folder.glob('*.png')))
-            
-            if image_files:
-                first_image = sorted(image_files)[0]
-                id_images[id_num] = first_image
+        for id_num, id_folder in enumerate(sorted(id_folders)):
+            id_images[id_num] = os.path.join(id_folder, "crop.jpg")
         
         return id_images
 
@@ -57,6 +51,7 @@ class ReIDService:
         id_list = []
         
         for id_num, image_path in id_images.items():
+            print(f"extracting features for image_path: {image_path}")
             features = self.extract_features(image_path)
             if features is not None:
                 features_list.append(features)
@@ -103,7 +98,7 @@ class ReIDService:
         for i, cluster_id in enumerate(cluster_labels):
             tracking_id = id_list[i]
             tracking_to_cluster[tracking_id] = cluster_id
-        
+        print(f"tracking_to_cluster: {tracking_to_cluster}")
         return {
             'cluster_labels': cluster_labels.tolist(),
             'id_list': id_list,
@@ -117,12 +112,12 @@ class ReIDService:
     def process_clustering(self, crops_dir: str, distance_threshold: float = 0.2,
                           n_clusters: Optional[int] = None) -> Optional[Dict]:
         id_images = self.get_first_image_from_each_id(crops_dir)
-        
         if not id_images:
             return None
         
         features, id_list = self.extract_features_batch(id_images)
-        
+        # print(f"features: {features}")
+        print(f"id_list: {id_list}")
         if len(features) == 0:
             return None
         

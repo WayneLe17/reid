@@ -17,7 +17,6 @@ class VideoProcessingRequest(BaseModel):
     distance_threshold: float = Field(default=0.2, ge=0.0, le=1.0, description="Clustering distance threshold")
     n_clusters: Optional[int] = Field(default=None, description="Number of clusters")
     vid_stride: int = Field(default=1, ge=1, description="Video stride")
-    save_crops: bool = Field(default=True, description="Save cropped images")
     enable_visualization: bool = Field(default=True, description="Enable visualization")
 
 class VideoProcessingResponse(BaseModel):

@@ -64,48 +64,43 @@ class VideoProcessingService:
                 'iou': request_params.get('iou', 0.7),
                 'device': settings.DEVICE,
                 'vid_stride': request_params.get('vid_stride', 1),
-                'crops_dir': str(crops_dir) if request_params.get('save_crops', True) else None,
+                'crops_dir': str(crops_dir),
                 'results_dir': str(results_dir),
-                'save_crops': request_params.get('save_crops', True)
             }
             
             tracking_results = await asyncio.to_thread(
                 self.tracking_service.process_video, **tracking_params
             )
             
-            cluster_results = None
-            if crops_dir.exists():
-                clustering_params = {
-                    'crops_dir': str(crops_dir),
-                    'distance_threshold': request_params.get('distance_threshold', 0.2),
-                    'n_clusters': request_params.get('n_clusters')
-                }
-                
-                cluster_results = await asyncio.to_thread(
-                    self.reid_service.process_clustering, **clustering_params
-                )
+            clustering_params = {
+                'crops_dir': str(crops_dir),
+                'distance_threshold': request_params.get('distance_threshold', 0.2),
+                'n_clusters': request_params.get('n_clusters')
+            }
             
-            analysis_results = None
-            if cluster_results:
-                temp_video_path = str(task_output_dir / "temp_video.mp4")
-                
-                temp_visualization_params = {
-                    'video_path': video_path,
-                    'tracking_results_dir': str(results_dir),
-                    'output_path': temp_video_path,
-                    'cluster_results': cluster_results
-                }
-                
-                await asyncio.to_thread(
-                    self.visualization_service.process_video, **temp_visualization_params
-                )
-                
-                analysis_results = await asyncio.to_thread(
-                    self.analyzer_service.analyze_cluster_behaviors, temp_video_path, cluster_results
-                )
-                
-                if os.path.exists(temp_video_path):
-                    os.remove(temp_video_path)
+            cluster_results = await asyncio.to_thread(
+                self.reid_service.process_clustering, **clustering_params
+            )
+            print(f"cluster_results: {cluster_results}")
+            temp_video_path = str(task_output_dir / "temp_video.mp4")
+            
+            temp_visualization_params = {
+                'video_path': video_path,
+                'tracking_results_dir': str(results_dir),
+                'output_path': temp_video_path,
+                'cluster_results': cluster_results
+            }
+            
+            await asyncio.to_thread(
+                self.visualization_service.process_video, **temp_visualization_params
+            )
+            
+            analysis_results = await asyncio.to_thread(
+                self.analyzer_service.analyze_cluster_behaviors, temp_video_path, cluster_results
+            )
+            
+            if os.path.exists(temp_video_path):
+                os.remove(temp_video_path)
             
             output_video_path = None
             if request_params.get('enable_visualization', True):

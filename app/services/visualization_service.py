@@ -133,7 +133,7 @@ class VisualizationService:
             if not ret:
                 break
             
-            frame_data = frames_tracking_data.get('frames', {}).get(str(frame_num))
+            frame_data = frames_tracking_data.get('frames', {})[frame_num]
             
             if frame_data and 'detections' in frame_data:
                 for detection in frame_data['detections']:
@@ -143,7 +143,6 @@ class VisualizationService:
                     cluster_id = cluster_map.get(tracking_id)
                     behavior = behavior_map.get(cluster_id) if cluster_id else None
                     frame = self.draw_bbox_with_cluster(frame, bbox, tracking_id, cluster_id, behavior)
-            
             out.write(frame)
             processed_frames += 1
             frame_num += 1

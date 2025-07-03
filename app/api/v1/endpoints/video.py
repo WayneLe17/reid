@@ -13,44 +13,28 @@ router = APIRouter()
 @router.post("/process", response_model=VideoProcessingResponse)
 async def process_video(
     background_tasks: BackgroundTasks,
-    file: UploadFile = File(...),
+    file_name: str = Form(...),
     tracking_method: str = Form("botsort"),
     reid_model: str = Form("osnet_ibn_x1_0_msmt17.pt"),
     yolo_model: str = Form("yolo11s.pt"),
     conf: float = Form(0.5),
     iou: float = Form(0.7),
     distance_threshold: float = Form(0.2),
-    n_clusters: int = Form(None),
+    n_clusters: int = Form(10),
     vid_stride: int = Form(1),
-    save_crops: bool = Form(True),
-    enable_visualization: bool = Form(True)
 ):
-    if not file.filename:
+    if not file_name:
         raise HTTPException(status_code=400, detail="No file provided")
     
-    file_extension = Path(file.filename).suffix.lower()
+    file_extension = Path(file_name).suffix.lower()
     if file_extension not in settings.ALLOWED_VIDEO_EXTENSIONS:
         raise HTTPException(
             status_code=400, 
             detail=f"Unsupported file type. Allowed: {settings.ALLOWED_VIDEO_EXTENSIONS}"
         )
     
-    if file.size and file.size > settings.MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413, 
-            detail=f"File too large. Maximum size: {settings.MAX_FILE_SIZE // (1024*1024)}MB"
-        )
-    
     task_id = video_service.create_task()
     
-    upload_dir = Path("uploads")
-    upload_dir.mkdir(exist_ok=True)
-    
-    video_path = upload_dir / f"{task_id}_{file.filename}"
-    
-    async with aiofiles.open(video_path, 'wb') as f:
-        content = await file.read()
-        await f.write(content)
     request_params = {
         'tracking_method': tracking_method,
         'reid_model': reid_model,
@@ -60,14 +44,12 @@ async def process_video(
         'distance_threshold': distance_threshold,
         'n_clusters': n_clusters,
         'vid_stride': vid_stride,
-        'save_crops': save_crops,
-        'enable_visualization': enable_visualization
     }
     
     background_tasks.add_task(
         video_service.process_video,
         task_id,
-        str(video_path),
+        file_name,
         request_params
     )
     
