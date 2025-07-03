@@ -115,6 +115,42 @@ class VisualizationService:
                 }
         return {}
     
+    def get_class_activity_for_chunk(self, chunk_number: int, analysis_results) -> str:
+        if not analysis_results or not hasattr(analysis_results, 'chunk_results'):
+            return "unknown"
+        
+        for chunk_result in analysis_results.chunk_results:
+            if chunk_result.chunk_number == chunk_number:
+                return chunk_result.class_activity
+        return "unknown"
+    
+    def draw_class_activity(self, frame: np.ndarray, class_activity: str) -> np.ndarray:
+        if not class_activity or class_activity == "unknown":
+            return frame
+        
+        frame_height, frame_width = frame.shape[:2]
+        text = f"Class Activity: {class_activity}"
+        
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        font_scale = 0.8
+        thickness = 2
+        text_size = cv2.getTextSize(text, font, font_scale, thickness)[0]
+        
+        text_x = frame_width - text_size[0] - 20
+        text_y = 40
+        
+        cv2.rectangle(frame, 
+                     (text_x - 10, text_y - text_size[1] - 10),
+                     (text_x + text_size[0] + 10, text_y + 10),
+                     (0, 0, 0), -1)
+        
+        cv2.putText(frame, text,
+                   (text_x, text_y),
+                   font, font_scale,
+                   (255, 255, 255), thickness)
+        
+        return frame
+    
     def process_video(self, video_path: str, tracking_results_dir: str, 
                      output_path: str, cluster_results: Optional[Dict] = None,
                      analysis_results = None) -> Dict:
@@ -144,6 +180,7 @@ class VisualizationService:
             
             chunk_number = self.get_chunk_for_frame(frame_num, fps)
             behavior_map = self.get_behaviors_for_chunk(chunk_number, analysis_results)
+            class_activity = self.get_class_activity_for_chunk(chunk_number, analysis_results)
             
             frame_data = frames_tracking_data.get('frames', {})[frame_num]
             
@@ -155,6 +192,8 @@ class VisualizationService:
                     cluster_id = cluster_map.get(tracking_id)
                     behavior = behavior_map.get(cluster_id) if cluster_id else None
                     frame = self.draw_bbox_with_cluster(frame, bbox, tracking_id, cluster_id, behavior)
+            
+            frame = self.draw_class_activity(frame, class_activity)
             out.write(frame)
             processed_frames += 1
             frame_num += 1
