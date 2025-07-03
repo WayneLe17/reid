@@ -99,17 +99,26 @@ class VisualizationService:
         
         return frame
 
+    def get_chunk_for_frame(self, frame_num: int, fps: float) -> int:
+        chunk_interval_frames = int(fps * 60 * settings.ANALYSIS_CHUNK_MINUTES)
+        return frame_num // chunk_interval_frames
+    
+    def get_behaviors_for_chunk(self, chunk_number: int, analysis_results) -> Dict[int, str]:
+        if not analysis_results or not hasattr(analysis_results, 'chunk_results'):
+            return {}
+        
+        for chunk_result in analysis_results.chunk_results:
+            if chunk_result.chunk_number == chunk_number:
+                return {
+                    behavior.object_id: behavior.primary_action.value 
+                    for behavior in chunk_result.object_behaviors
+                }
+        return {}
+    
     def process_video(self, video_path: str, tracking_results_dir: str, 
                      output_path: str, cluster_results: Optional[Dict] = None,
                      analysis_results = None) -> Dict:
         cluster_map = self.get_cluster_mapping(cluster_results)
-        
-        behavior_map = {}
-        if analysis_results and hasattr(analysis_results, 'object_behaviors'):
-            behavior_map = {
-                behavior.object_id: behavior.primary_action.value 
-                for behavior in analysis_results.object_behaviors
-            }
         
         frames_tracking_data = self.load_frame_tracking_data(tracking_results_dir)
         
@@ -132,6 +141,9 @@ class VisualizationService:
             ret, frame = cap.read()
             if not ret:
                 break
+            
+            chunk_number = self.get_chunk_for_frame(frame_num, fps)
+            behavior_map = self.get_behaviors_for_chunk(chunk_number, analysis_results)
             
             frame_data = frames_tracking_data.get('frames', {})[frame_num]
             

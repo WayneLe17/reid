@@ -82,25 +82,12 @@ class VideoProcessingService:
                 self.reid_service.process_clustering, **clustering_params
             )
             print(f"cluster_results: {cluster_results}")
-            temp_video_path = str(task_output_dir / "temp_video.mp4")
-            
-            temp_visualization_params = {
-                'video_path': video_path,
-                'tracking_results_dir': str(results_dir),
-                'output_path': temp_video_path,
-                'cluster_results': cluster_results
-            }
-            
-            await asyncio.to_thread(
-                self.visualization_service.process_video, **temp_visualization_params
-            )
             
             analysis_results = await asyncio.to_thread(
-                self.analyzer_service.analyze_cluster_behaviors, temp_video_path, cluster_results
+                self.analyzer_service.analyze_cluster_behaviors_from_frames, 
+                str(crops_dir), 
+                cluster_results
             )
-            
-            if os.path.exists(temp_video_path):
-                os.remove(temp_video_path)
             
             output_video_path = None
             if request_params.get('enable_visualization', True):
@@ -118,7 +105,6 @@ class VideoProcessingService:
                     self.visualization_service.process_video, **visualization_params
                 )
             
-            # Update task with results
             self.update_task_status(
                 task_id,
                 ProcessingStatus.COMPLETED,
