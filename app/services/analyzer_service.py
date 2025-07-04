@@ -254,8 +254,13 @@ class AnalyzerService:
             
             chunk_behaviors = []
             for cluster_id in sorted(cluster_ids):
-                behavior = chunk_result["behaviors"].get(cluster_id)
-                if not behavior:
+                action_type = chunk_result["behaviors"].get(cluster_id)
+                if action_type:
+                    behavior = ObjectBehavior(
+                        object_id=cluster_id,
+                        primary_action=action_type
+                    )
+                else:
                     behavior = ObjectBehavior(
                         object_id=cluster_id,
                         primary_action=ActionType(
