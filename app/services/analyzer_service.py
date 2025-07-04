@@ -2,14 +2,28 @@ import cv2
 import tempfile
 import os
 from enum import Enum
-from typing import List, Dict, Optional, Set
+from typing import List, Dict, Optional
 from pathlib import Path
 from google import genai
 from google.genai import types
 from pydantic import BaseModel, Field
 from app.core.config import settings
 
-class ActionType(str, Enum):
+class FocusLevel(str, Enum):
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
+    DISTRACTED = "distracted"
+
+class PostureType(str, Enum):
+    UPRIGHT = "upright"
+    SLOUCHED = "slouched"
+    LEANING_FORWARD = "leaning_forward"
+    LEANING_BACK = "leaning_back"
+    RELAXED = "relaxed"
+    TENSE = "tense"
+
+class ActivityType(str, Enum):
     SITTING = "sitting"
     STANDING = "standing"
     WRITING = "writing"
@@ -29,6 +43,12 @@ class ActionType(str, Enum):
     LISTENING = "listening"
     PRESENTING = "presenting"
 
+class ActionType(BaseModel):
+    activity: ActivityType = Field(description="The activity of the person")
+    posture: PostureType = Field(description="The posture of the person")
+    focus_level: FocusLevel = Field(description="The focus level of the person")
+    unusual_behaviors: Optional[str] = Field(default=None, description="Any unusual or noteworthy behaviors")
+
 class ObjectBehavior(BaseModel):
     object_id: int = Field(description="The ID of the tracked person")
     primary_action: ActionType = Field(description="The primary action of this person")
@@ -47,8 +67,7 @@ class AnalyzerService:
     def __init__(self):
         self.model_name = settings.GEMINI_MODEL
         self.client = genai.Client(api_key=settings.GOOGLE_API_KEY)
-    
-    
+        
     def create_video_chunk(self, video_path: str, start_frame: int, end_frame: int) -> str:
         cap = cv2.VideoCapture(video_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -106,13 +125,31 @@ class AnalyzerService:
                 crop_data = f.read()
             
             action_values = [action.value for action in ActionType]
+            focus_values = [focus.value for focus in FocusLevel]
+            posture_values = [posture.value for posture in PostureType]
+            
             prompt = f"""
-            Analyze this cropped image of person from cluster {cluster_id} in a classroom.
+            Analyze this cropped image of person {cluster_id} in a classroom setting.
             
-            Determine what action this person is performing.
-            Choose from: {', '.join(action_values)}
+            Provide a detailed analysis of their current state:
             
-            Return only the action name, nothing else.
+            1. PRIMARY ACTION - What is this person doing? Choose from:
+               {', '.join(action_values)}
+            
+            2. FOCUS LEVEL - How focused/attentive are they? Choose from:
+               {', '.join(focus_values)}
+            
+            3. POSTURE - Describe their body position. Choose from:
+               {', '.join(posture_values)}
+            
+            4. UNUSUAL BEHAVIORS - Note any unusual behaviors such as:
+               - Using phone during instruction
+               - Signs of distress or discomfort
+               - Disruptive movements
+               - Unusual interactions
+               - Any atypical behavior
+               
+            If no unusual behaviors, set to null.
             """
             
             response = self.client.models.generate_content(
@@ -127,21 +164,25 @@ class AnalyzerService:
                     types.Part(text=prompt)
                 ]),
                 config=types.GenerateContentConfig(
-                    temperature=0.1,
-                    max_output_tokens=50
+                    response_mime_type="application/json",
+                    response_schema=ActionType,
+                    temperature=0.1
                 )
             )
             
-            action_text = response.text.strip().lower()
-            for action in ActionType:
-                if action.value.lower() in action_text:
-                    return action
-            
-            return ActionType.INACTIVE
+            return response.parsed     
             
         except Exception as e:
             print(f"Error analyzing crop for cluster {cluster_id}: {e}")
-            return ActionType.INACTIVE
+            return ObjectBehavior(
+                object_id=cluster_id,
+                primary_action=ActionType(
+                    activity=ActivityType.INACTIVE,
+                    posture=PostureType.RELAXED,
+                    focus_level=FocusLevel.LOW,
+                    unusual_behaviors=None
+                )
+            )
     
     def analyze_single_frame_activity(self, crops_dir: str, chunk_number: int) -> str:
         frame_path = Path(crops_dir) / "chunk_frames" / f"frame_chunk_{chunk_number}.jpg"
@@ -215,11 +256,18 @@ class AnalyzerService:
             
             chunk_behaviors = []
             for cluster_id in sorted(cluster_ids):
-                action = chunk_result["behaviors"].get(cluster_id, ActionType.INACTIVE)
-                chunk_behaviors.append(ObjectBehavior(
-                    object_id=cluster_id,
-                    primary_action=action
-                ))
+                behavior = chunk_result["behaviors"].get(cluster_id)
+                if not behavior:
+                    behavior = ObjectBehavior(
+                        object_id=cluster_id,
+                        primary_action=ActionType(
+                            activity=ActivityType.INACTIVE,
+                            posture=PostureType.RELAXED,
+                            focus_level=FocusLevel.LOW,
+                            unusual_behaviors=None
+                        )
+                    )
+                chunk_behaviors.append(behavior)
             
             start_frame = chunk_number * chunk_interval_frames
             end_frame = (chunk_number + 1) * chunk_interval_frames
@@ -234,65 +282,4 @@ class AnalyzerService:
         
         return VideoAnalysisResult(
             chunk_results=chunk_results
-        )
-    
-    def analyze_cluster_behaviors(self, video_path: str, cluster_results: Dict) -> Optional[VideoAnalysisResult]:
-        if not cluster_results or 'clusters' not in cluster_results:
-            return None
-        
-        cluster_ids = set(int(cluster_id) for cluster_id in cluster_results['clusters'].keys())
-        
-        if not cluster_ids:
-            return None
-        
-        cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        cap.release()
-        
-        chunk_frames = int(fps * 60 * settings.ANALYSIS_CHUNK_MINUTES)
-        
-        if total_frames <= chunk_frames:
-            return self.analyze_video_with_objects(video_path, cluster_ids)
-        
-        behaviors_per_cluster = {}
-        
-        for start_frame in range(0, total_frames, chunk_frames):
-            end_frame = min(start_frame + chunk_frames, total_frames)
-            
-            chunk_path = self.create_video_chunk(video_path, start_frame, end_frame)
-            
-            try:
-                chunk_result = self.analyze_video_with_objects(chunk_path, cluster_ids)
-                
-                for behavior in chunk_result.object_behaviors:
-                    cluster_id = behavior.object_id
-                    action = behavior.primary_action
-                    
-                    if cluster_id not in behaviors_per_cluster:
-                        behaviors_per_cluster[cluster_id] = []
-                    behaviors_per_cluster[cluster_id].append(action)
-                
-            finally:
-                if os.path.exists(chunk_path):
-                    os.remove(chunk_path)
-        
-        final_behaviors = []
-        for cluster_id in sorted(cluster_ids):
-            if cluster_id in behaviors_per_cluster:
-                actions = behaviors_per_cluster[cluster_id]
-                most_common_action = max(set(actions), key=actions.count)
-                final_behaviors.append(ObjectBehavior(
-                    object_id=cluster_id,
-                    primary_action=most_common_action
-                ))
-            else:
-                final_behaviors.append(ObjectBehavior(
-                    object_id=cluster_id,
-                    primary_action=ActionType.INACTIVE
-                ))
-        
-        return VideoAnalysisResult(
-            object_behaviors=final_behaviors,
-            class_activity="mixed activities"
         )

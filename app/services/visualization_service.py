@@ -4,6 +4,8 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 from app.core.config import settings
+from app.services.analyzer_service import VideoAnalysisResult, ActionType
+
 class VisualizationService:
     def __init__(self):
         pass
@@ -32,15 +34,18 @@ class VisualizationService:
 
     def draw_bbox_with_cluster(self, frame: np.ndarray, bbox: List[float], 
                               tracking_id: int, cluster_id: Optional[int] = None,
-                              behavior: Optional[str] = None) -> np.ndarray:
+                              action: Optional[ActionType] = None) -> np.ndarray:
         x, y, w, h = bbox
         x1, y1, x2, y2 = x, y, x + w, y + h
         
         if cluster_id is not None:
             color = self.get_cluster_color(cluster_id)
-            label = f"ID{cluster_id}"
-            if behavior:
-                label += f" {behavior}"
+            label = f"ID{cluster_id}\n"
+            if action:
+                label += f"Activity: {action.activity.value}\n"
+                label += f"Posture: {action.posture.value}\n"
+                label += f"Focus Level: {action.focus_level.value}\n"
+                label += f"Unusual Behaviors: {action.unusual_behaviors}"
         else:
             color = (128, 128, 128)
             label = f"Track:{tracking_id}"
@@ -103,14 +108,14 @@ class VisualizationService:
         chunk_interval_frames = int(fps * 60 * settings.ANALYSIS_CHUNK_MINUTES)
         return frame_num // chunk_interval_frames
     
-    def get_behaviors_for_chunk(self, chunk_number: int, analysis_results) -> Dict[int, str]:
+    def get_behaviors_for_chunk(self, chunk_number: int, analysis_results: VideoAnalysisResult) -> Dict[int, ActionType]:
         if not analysis_results or not hasattr(analysis_results, 'chunk_results'):
             return {}
         
         for chunk_result in analysis_results.chunk_results:
             if chunk_result.chunk_number == chunk_number:
                 return {
-                    behavior.object_id: behavior.primary_action.value 
+                    behavior.object_id: behavior.primary_action 
                     for behavior in chunk_result.object_behaviors
                 }
         return {}
@@ -153,7 +158,7 @@ class VisualizationService:
     
     def process_video(self, video_path: str, tracking_results_dir: str, 
                      output_path: str, cluster_results: Optional[Dict] = None,
-                     analysis_results = None) -> Dict:
+                     analysis_results: Optional[VideoAnalysisResult] = None) -> Dict:
         cluster_map = self.get_cluster_mapping(cluster_results)
         
         frames_tracking_data = self.load_frame_tracking_data(tracking_results_dir)
@@ -190,8 +195,8 @@ class VisualizationService:
                     bbox = detection['bbox']
                     
                     cluster_id = cluster_map.get(tracking_id)
-                    behavior = behavior_map.get(cluster_id) if cluster_id else None
-                    frame = self.draw_bbox_with_cluster(frame, bbox, tracking_id, cluster_id, behavior)
+                    action = behavior_map.get(cluster_id) if cluster_id else None
+                    frame = self.draw_bbox_with_cluster(frame, bbox, tracking_id, cluster_id, action)
             
             frame = self.draw_class_activity(frame, class_activity)
             out.write(frame)
