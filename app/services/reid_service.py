@@ -7,7 +7,6 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from boxmot.appearance.reid.auto_backend import ReidAutoBackend
 from app.core.config import settings
-import os
 
 class ReIDService:
     def __init__(self, reid_model_path: str = None, device: int = None):

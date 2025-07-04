@@ -66,43 +66,6 @@ class VisualizationService:
         return frame
 
 
-    def create_behavior_legend(self, frame: np.ndarray, behavior_map: Dict[int, str]) -> np.ndarray:
-        if not behavior_map:
-            return frame
-        
-        legend_x = 20
-        legend_y = frame.shape[0] - 200
-        legend_width = 300
-        legend_height = len(behavior_map) * 25 + 40
-        
-        cv2.rectangle(frame, 
-                     (legend_x - 10, legend_y - 30),
-                     (legend_x + legend_width, legend_y + legend_height - 30),
-                     (0, 0, 0), -1)
-        
-        cv2.putText(frame, "Behavior Map:",
-                   (legend_x, legend_y - 10),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.7,
-                   (255, 255, 255), 2)
-        
-        y_offset = 0
-        for cluster_id, behavior in sorted(behavior_map.items()):
-            color = self.get_cluster_color(cluster_id)
-            
-            cv2.rectangle(frame,
-                         (legend_x, legend_y + y_offset),
-                         (legend_x + 20, legend_y + y_offset + 20),
-                         color, -1)
-            
-            text = f"ID {cluster_id}: {behavior}"
-            cv2.putText(frame, text,
-                       (legend_x + 30, legend_y + y_offset + 15),
-                       cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                       (255, 255, 255), 1)
-            
-            y_offset += 25
-        
-        return frame
 
     def get_chunk_for_frame(self, frame_num: int, fps: float) -> int:
         chunk_interval_frames = int(fps * 60 * settings.ANALYSIS_CHUNK_MINUTES)
@@ -133,7 +96,7 @@ class VisualizationService:
         if not class_activity or class_activity == "unknown":
             return frame
         
-        frame_height, frame_width = frame.shape[:2]
+        frame_width = frame.shape[1]
         text = f"Class Activity: {class_activity}"
         
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -170,7 +133,6 @@ class VisualizationService:
         fps = int(cap.get(cv2.CAP_PROP_FPS))
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
         fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))

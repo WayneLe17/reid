@@ -110,7 +110,8 @@ class AnalyzerService:
                     chunk_crop_path = potential_path
                     break
             
-            behaviors[cluster_id] = self.analyze_single_crop(chunk_crop_path, cluster_id)
+            if chunk_crop_path:
+                behaviors[cluster_id] = self.analyze_single_crop(chunk_crop_path, cluster_id)
         
         class_activity = self.analyze_single_frame_activity(crops_dir, chunk_number)
         
@@ -124,7 +125,7 @@ class AnalyzerService:
             with open(crop_path, 'rb') as f:
                 crop_data = f.read()
             
-            action_values = [action.value for action in ActionType]
+            action_values = [action.value for action in ActivityType]
             focus_values = [focus.value for focus in FocusLevel]
             posture_values = [posture.value for posture in PostureType]
             
@@ -174,14 +175,11 @@ class AnalyzerService:
             
         except Exception as e:
             print(f"Error analyzing crop for cluster {cluster_id}: {e}")
-            return ObjectBehavior(
-                object_id=cluster_id,
-                primary_action=ActionType(
-                    activity=ActivityType.INACTIVE,
-                    posture=PostureType.RELAXED,
-                    focus_level=FocusLevel.LOW,
-                    unusual_behaviors=None
-                )
+            return ActionType(
+                activity=ActivityType.INACTIVE,
+                posture=PostureType.RELAXED,
+                focus_level=FocusLevel.LOW,
+                unusual_behaviors=None
             )
     
     def analyze_single_frame_activity(self, crops_dir: str, chunk_number: int) -> str:

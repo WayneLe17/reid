@@ -1,6 +1,7 @@
 import os
 import uuid
 import asyncio
+import shutil
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional, Any
@@ -129,7 +130,6 @@ class VideoProcessingService:
     def cleanup_task_files(self, task_id: str):
         task_output_dir = Path(settings.OUTPUT_DIR) / task_id
         if task_output_dir.exists():
-            import shutil
             shutil.rmtree(task_output_dir)
 
 video_service = VideoProcessingService()

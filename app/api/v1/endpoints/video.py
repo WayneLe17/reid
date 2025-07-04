@@ -1,7 +1,6 @@
-import aiofiles
 from pathlib import Path
 from typing import List
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
+from fastapi import APIRouter, Form, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from app.schemas.video import VideoProcessingResponse, VideoProcessingResult, TaskStatus, ProcessingStatus
 from app.services.video_service import video_service
