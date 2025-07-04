@@ -1,5 +1,5 @@
-from typing import Optional, Dict, Any
-from pydantic import BaseModel
+from typing import Optional, Dict, Any, List
+from pydantic import BaseModel, Field
 from enum import Enum
 
 class ProcessingStatus(str, Enum):
@@ -22,6 +22,7 @@ class VideoProcessingResult(BaseModel):
     task_id: str
     status: ProcessingStatus
     output_video_path: Optional[str] = None
+    json_results_path: Optional[str] = None
     tracking_results: Optional[Dict[str, Any]] = None
     cluster_results: Optional[Dict[str, Any]] = None
     processing_stats: Optional[Dict[str, Any]] = None

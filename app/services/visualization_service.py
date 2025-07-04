@@ -119,6 +119,71 @@ class VisualizationService:
         
         return frame
     
+    def export_frame_data_to_json(self, output_path: str, tracking_results_dir: str,
+                                  cluster_results: Optional[Dict] = None,
+                                  analysis_results: Optional[VideoAnalysisResult] = None) -> str:
+        cluster_map = self.get_cluster_mapping(cluster_results)
+        frames_tracking_data = self.load_frame_tracking_data(tracking_results_dir)
+        
+        if not frames_tracking_data:
+            raise ValueError("No tracking data found")
+        
+        export_data = {
+            "video_info": frames_tracking_data.get("video_info", {}),
+            "frames": []
+        }
+        
+        for frame_data in frames_tracking_data.get("frames", []):
+            frame_num = frame_data["frame_number"]
+            fps = frames_tracking_data.get("video_info", {}).get("fps", 30)
+            
+            chunk_number = self.get_chunk_for_frame(frame_num, fps)
+            behavior_map = self.get_behaviors_for_chunk(chunk_number, analysis_results)
+            class_activity = self.get_class_activity_for_chunk(chunk_number, analysis_results)
+            
+            frame_export = {
+                "frame_number": frame_num,
+                "timestamp": frame_data.get("timestamp", ""),
+                "class_activity": class_activity,
+                "detections": []
+            }
+            
+            for detection in frame_data.get("detections", []):
+                tracking_id = detection["track_id"]
+                bbox = detection["bbox"]
+                cluster_id = cluster_map.get(tracking_id)
+                action = behavior_map.get(cluster_id) if cluster_id else None
+                
+                detection_export = {
+                    "track_id": tracking_id,
+                    "cluster_id": cluster_id,
+                    "bbox": {
+                        "x": bbox[0],
+                        "y": bbox[1], 
+                        "width": bbox[2],
+                        "height": bbox[3]
+                    },
+                    "action_type": None
+                }
+                
+                if action:
+                    detection_export["action_type"] = {
+                        "activity": action.activity.value,
+                        "posture": action.posture.value,
+                        "focus_level": action.focus_level.value,
+                        "unusual_behaviors": action.unusual_behaviors
+                    }
+                
+                frame_export["detections"].append(detection_export)
+            
+            export_data["frames"].append(frame_export)
+        
+        json_output_path = output_path.replace(".mp4", "_analysis_results.json")
+        with open(json_output_path, 'w') as f:
+            json.dump(export_data, f, indent=2)
+        
+        return json_output_path
+
     def process_video(self, video_path: str, tracking_results_dir: str, 
                      output_path: str, cluster_results: Optional[Dict] = None,
                      analysis_results: Optional[VideoAnalysisResult] = None) -> Dict:
@@ -168,7 +233,13 @@ class VisualizationService:
         cap.release()
         out.release()
         
+        # Export frame data to JSON
+        json_output_path = self.export_frame_data_to_json(
+            output_path, tracking_results_dir, cluster_results, analysis_results
+        )
+        
         return {
             'input_path': video_path,
             'output_path': output_path,
+            'json_output_path': json_output_path
         }

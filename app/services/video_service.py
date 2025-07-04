@@ -107,6 +107,7 @@ class VideoProcessingService:
                 task_id,
                 ProcessingStatus.COMPLETED,
                 output_video_path=output_video_path,
+                json_results_path=visualization_results.get('json_output_path'),
                 tracking_results=tracking_results,
                 cluster_results=cluster_results,
                 processing_stats={
