@@ -7,29 +7,46 @@ from sklearn.cluster import AgglomerativeClustering
 from sklearn.metrics.pairwise import cosine_similarity
 from boxmot.appearance.reid.auto_backend import ReidAutoBackend
 from app.core.config import settings
+from app.services.centroids_reid_service import CentroidsReIDService
 
 class ReIDService:
-    def __init__(self, reid_model_path: str = None, device: int = None):
+    def __init__(self, reid_model_path: str = None, device: int = None, use_centroids: bool = False):
         self.device = device or settings.DEVICE
         self.reid_model_path = reid_model_path or settings.REID_MODEL_PATH
-        self.reid_model = ReidAutoBackend(
-            weights=Path(self.reid_model_path),
-            device=self.device,
-            half=True if self.device == 0 else False
-        ).model
+        self.use_centroids = use_centroids
+        
+        if use_centroids:
+            self.centroids_service = CentroidsReIDService(
+                model_path=reid_model_path,
+                device=device,
+                use_centroids=True,
+                normalize_features=getattr(settings, 'REID_NORMALIZE_FEATURES', True),
+                distance_func=getattr(settings, 'REID_DISTANCE_FUNC', 'cosine')
+            )
+            self.reid_model = None
+        else:
+            self.reid_model = ReidAutoBackend(
+                weights=Path(self.reid_model_path),
+                device=self.device,
+                half=True if self.device == 0 else False
+            ).model
+            self.centroids_service = None
 
     def extract_features(self, image_path: str) -> Optional[np.ndarray]:
-        img = cv2.imread(str(image_path))
-        if img is None:
-            return None
-        
-        h, w = img.shape[:2]
-        bbox = np.array([[0, 0, w, h]])
-        
-        with torch.no_grad():
-            features = self.reid_model.get_features(bbox, img)
+        if self.use_centroids:
+            return self.centroids_service.extract_features(image_path)
+        else:
+            img = cv2.imread(str(image_path))
+            if img is None:
+                return None
             
-        return features[0]
+            h, w = img.shape[:2]
+            bbox = np.array([[0, 0, w, h]])
+            
+            with torch.no_grad():
+                features = self.reid_model.get_features(bbox, img)
+                
+            return features[0]
 
     def get_first_image_from_each_id(self, crops_dir: str) -> Dict[int, Path]:
         crops_path = Path(crops_dir)
@@ -111,12 +128,17 @@ class ReIDService:
 
     def process_clustering(self, crops_dir: str, distance_threshold: float = 0.2,
                           n_clusters: Optional[int] = None) -> Optional[Dict]:
-        id_images = self.get_first_image_from_each_id(crops_dir)
-        if not id_images:
-            return None
-        
-        features, id_list = self.extract_features_batch(id_images)
-        if len(features) == 0:
-            return None
-        
-        return self.cluster_identities(features, id_list, n_clusters, distance_threshold)
+        if self.use_centroids:
+            return self.centroids_service.process_clustering(
+                crops_dir, distance_threshold, n_clusters
+            )
+        else:
+            id_images = self.get_first_image_from_each_id(crops_dir)
+            if not id_images:
+                return None
+            
+            features, id_list = self.extract_features_batch(id_images)
+            if len(features) == 0:
+                return None
+            
+            return self.cluster_identities(features, id_list, n_clusters, distance_threshold)

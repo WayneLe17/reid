@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     YOLO_MODEL_PATH: str = "yolo11s.pt"
     DEVICE: int = 0
     
+    REID_USE_CENTROIDS: bool = True
+    REID_NORMALIZE_FEATURES: bool = True
+    REID_DISTANCE_FUNC: str = "cosine"
+    REID_DISTANCE_THRESHOLD: float = 0.2
+    REID_LINKAGE: str = "average"
+    
     CROPS_DIR: str = "crops"
     TRACKING_RESULTS_DIR: str = "tracking_results_frames"
     OUTPUT_DIR: str = "outputs"
