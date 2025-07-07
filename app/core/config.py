@@ -18,9 +18,14 @@ class Settings(BaseSettings):
             return v
         raise ValueError(v)
     
-    REID_MODEL_PATH: str = "osnet_ibn_x1_0_msmt17.pt"
+    REID_MODEL_PATH: str = "clip_duke.pt"
     YOLO_MODEL_PATH: str = "yolo11s.pt"
     DEVICE: int = 0
+    TRACKING_METHOD: str = "hybridsort"
+    CONF: float = 0.5
+    IOU: float = 0.7
+    IMGSZ: int = 1280
+    VID_STRIDE: int = 1
     
     CROPS_DIR: str = "crops"
     TRACKING_RESULTS_DIR: str = "tracking_results_frames"

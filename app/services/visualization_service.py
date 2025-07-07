@@ -133,8 +133,10 @@ class VisualizationService:
             "frames": []
         }
         
-        for frame_data in frames_tracking_data.get("frames", []):
-            frame_num = frame_data["frame_number"]
+        # Sort frames by frame number to maintain order
+        sorted_frames = sorted(frames_tracking_data.get("frames", {}).items(), key=lambda x: int(x[0]))
+        for frame_num_str, frame_data in sorted_frames:
+            frame_num = int(frame_num_str)  # Convert string key to int
             fps = frames_tracking_data.get("video_info", {}).get("fps", 30)
             
             chunk_number = self.get_chunk_for_frame(frame_num, fps)
@@ -214,7 +216,7 @@ class VisualizationService:
             behavior_map = self.get_behaviors_for_chunk(chunk_number, analysis_results)
             class_activity = self.get_class_activity_for_chunk(chunk_number, analysis_results)
             
-            frame_data = frames_tracking_data.get('frames', {})[frame_num]
+            frame_data = frames_tracking_data.get('frames', {}).get(frame_num)
             
             if frame_data and 'detections' in frame_data:
                 for detection in frame_data['detections']:

@@ -13,14 +13,7 @@ router = APIRouter()
 async def process_video(
     background_tasks: BackgroundTasks,
     file_name: str = Form(...),
-    tracking_method: str = Form("botsort"),
-    reid_model: str = Form("osnet_ibn_x1_0_msmt17.pt"),
-    yolo_model: str = Form("yolo11s.pt"),
-    conf: float = Form(0.5),
-    iou: float = Form(0.7),
-    distance_threshold: float = Form(0.2),
     n_clusters: int = Form(10),
-    vid_stride: int = Form(1),
 ):
     if not file_name:
         raise HTTPException(status_code=400, detail="No file provided")
@@ -35,14 +28,7 @@ async def process_video(
     task_id = video_service.create_task()
     
     request_params = {
-        'tracking_method': tracking_method,
-        'reid_model': reid_model,
-        'yolo_model': yolo_model,
-        'conf': conf,
-        'iou': iou,
-        'distance_threshold': distance_threshold,
         'n_clusters': n_clusters,
-        'vid_stride': vid_stride,
     }
     
     background_tasks.add_task(

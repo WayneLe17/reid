@@ -21,7 +21,7 @@ class TrackingService:
         self.frame_count = 0
         self.start_time = None
         self.seen_ids = set()
-        self.frame_results = []
+        self.frame_results = {}
         self.id_crops = {}  # For first crop (clustering)
         self.chunk_crops = {}  # For chunked analysis crops
         self.chunk_frames = {}  # For full frames at chunk intervals
@@ -161,17 +161,17 @@ class TrackingService:
             with open(results_file, 'w', encoding='utf-8') as f:
                 json.dump(all_results, f, separators=(',', ':'))
 
-    def process_video(self, video_path: str, yolo_model: str = 'yolo11s.pt', 
-                     tracking_method: str = 'botsort', reid_model: str = 'osnet_ibn_x1_0_msmt17.pt',
-                     conf: float = 0.5, iou: float = 0.7, imgsz: int = 640,
-                     device: int = 0, classes: List[int] = [0], vid_stride: int = 1,
+    def process_video(self, video_path: str, yolo_model: str = settings.YOLO_MODEL_PATH, 
+                     tracking_method: str = settings.TRACKING_METHOD, reid_model: str = settings.REID_MODEL_PATH,
+                     conf: float = settings.CONF, iou: float = settings.IOU, imgsz: int = settings.IMGSZ,
+                     device: int = settings.DEVICE, classes: List[int] = [0], vid_stride: int = settings.VID_STRIDE,
                      crops_dir: str = None, results_dir: str = None,
                     ) -> Dict:
         
         self.frame_count = 0
         self.start_time = None
         self.seen_ids = set()
-        self.frame_results = []
+        self.frame_results = {}
         self.id_crops = {}
         self.chunk_crops = {}
         self.chunk_frames = {}
@@ -235,18 +235,18 @@ class TrackingService:
             self.save_chunk_frame(result.orig_img, self.frame_count)
             
             if results_dir and frame_detections:
-                self.frame_results.append({
+                self.frame_results[self.frame_count] = {
                     "frame_number": self.frame_count,
                     "timestamp": self.frame_to_timestamp(self.frame_count),
                     "detections": frame_detections
-                })
+                }
             
             self.frame_count += 1
         
         self.save_memory_to_disk(crops_dir, results_dir)
         
         tracking_results = {}
-        for result_data in self.frame_results:
+        for frame_num, result_data in self.frame_results.items():
             timestamp = result_data["timestamp"]
             tracking_results[timestamp] = result_data["detections"]
         

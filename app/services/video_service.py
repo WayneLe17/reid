@@ -57,14 +57,6 @@ class VideoProcessingService:
             
             # Step 1: Run tracking
             tracking_params = {
-                'video_path': video_path,
-                'yolo_model': request_params.get('yolo_model', 'yolo11s.pt'),
-                'tracking_method': request_params.get('tracking_method', 'botsort'),
-                'reid_model': request_params.get('reid_model', 'osnet_ibn_x1_0_msmt17.pt'),
-                'conf': request_params.get('conf', 0.5),
-                'iou': request_params.get('iou', 0.7),
-                'device': settings.DEVICE,
-                'vid_stride': request_params.get('vid_stride', 1),
                 'crops_dir': str(crops_dir),
                 'results_dir': str(results_dir),
             }
@@ -75,7 +67,6 @@ class VideoProcessingService:
             
             clustering_params = {
                 'crops_dir': str(crops_dir),
-                'distance_threshold': request_params.get('distance_threshold', 0.2),
                 'n_clusters': request_params.get('n_clusters')
             }
             
