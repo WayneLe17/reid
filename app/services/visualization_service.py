@@ -11,11 +11,14 @@ class VisualizationService:
         pass
 
     def get_cluster_mapping(self, cluster_results: Dict):
+        if not cluster_results:
+            return {}
+            
         if 'tracking_to_cluster' in cluster_results:
             return cluster_results['tracking_to_cluster']
         
         cluster_map = {}
-        for cluster_id, tracking_ids in cluster_results['clusters'].items():
+        for cluster_id, tracking_ids in cluster_results.get('clusters', {}).items():
             for tracking_id in tracking_ids:
                 cluster_map[tracking_id] = int(cluster_id)
         return cluster_map
@@ -36,31 +39,30 @@ class VisualizationService:
                               tracking_id: int, cluster_id: Optional[int] = None,
                               action: Optional[ActionType] = None) -> np.ndarray:
         x, y, w, h = bbox
-        x1, y1, x2, y2 = x, y, x + w, y + h
+        x1, y1, x2, y2 = int(x), int(y), int(x + w), int(y + h)
         
         if cluster_id is not None:
             color = self.get_cluster_color(cluster_id)
-            label = f"ID{cluster_id}\n"
+            label = f"ID:{cluster_id}"
             if action:
-                label += f"Activity: {action.activity.value}\n"
-                label += f"Posture: {action.posture.value}\n"
-                label += f"Focus Level: {action.focus_level.value}\n"
-                label += f"Unusual Behaviors: {action.unusual_behaviors}"
+                label += f" {action.activity.value}"
         else:
-            color = (128, 128, 128)
-            label = f"Track:{tracking_id}"
+            color = (0, 255, 0)  # Green color like in test.py
+            label = f"ID:{tracking_id}"
         
-        cv2.rectangle(frame, (int(x1), int(y1)), (int(x2), int(y2)), color, 2)
+        # Draw rectangle
+        cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
         
-        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+        # Draw label background and text
+        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)[0]
         cv2.rectangle(frame, 
-                     (int(x1), int(y1) - label_size[1] - 10),
-                     (int(x1) + label_size[0], int(y1)),
+                     (x1, y1 - label_size[1] - 10),
+                     (x1 + label_size[0], y1),
                      color, -1)
         
         cv2.putText(frame, label,
-                   (int(x1), int(y1) - 5),
-                   cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                   (x1, y1 - 5),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.7,
                    (255, 255, 255), 2)
         
         return frame
@@ -206,6 +208,11 @@ class VisualizationService:
         
         frame_num = 0
         processed_frames = 0
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        print(f"Starting video processing: {total_frames} frames total")
+        if frames_tracking_data:
+            print(f"Loaded tracking data with {len(frames_tracking_data.get('frames', {}))} frames")
         
         while True:
             ret, frame = cap.read()
@@ -216,16 +223,21 @@ class VisualizationService:
             behavior_map = self.get_behaviors_for_chunk(chunk_number, analysis_results)
             class_activity = self.get_class_activity_for_chunk(chunk_number, analysis_results)
             
-            frame_data = frames_tracking_data.get('frames', {}).get(frame_num)
+            frame_key = str(frame_num)
+            frame_data = frames_tracking_data.get('frames', {}).get(frame_key)
             
             if frame_data and 'detections' in frame_data:
-                for detection in frame_data['detections']:
+                detections = frame_data['detections']
+                print(f"Frame {frame_num}: Found {len(detections)} detections")
+                for detection in detections:
                     tracking_id = detection['track_id']
                     bbox = detection['bbox']
                     
                     cluster_id = cluster_map.get(tracking_id)
                     action = behavior_map.get(cluster_id) if cluster_id else None
                     frame = self.draw_bbox_with_cluster(frame, bbox, tracking_id, cluster_id, action)
+            elif frame_num % 100 == 0:  # Print every 100 frames for debugging
+                print(f"Frame {frame_num}: No detections found")
             
             frame = self.draw_class_activity(frame, class_activity)
             out.write(frame)
