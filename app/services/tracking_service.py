@@ -2,6 +2,7 @@ import os
 import json
 import time
 import cv2
+import numpy as np
 from typing import Dict, List, Optional
 from boxmot.tracker_zoo import create_tracker
 from boxmot.utils import TRACKER_CONFIGS
@@ -198,41 +199,55 @@ class TrackingService:
         
         yolo = YOLO(yolo_model if is_ultralytics_model(yolo_model) else "yolov8n.pt")
         
-        results = yolo.track(
-            source=video_path,
-            conf=conf,
-            iou=iou,
-            device=str(device),
-            classes=classes,
-            imgsz=imgsz,
-            vid_stride=vid_stride,
-            save=False,
-            stream=True,
-            verbose=True,
-        )
+        # Process video frame by frame
+        cap = cv2.VideoCapture(video_path)
         
-        for result in results:
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            # Skip frames based on vid_stride
+            if self.frame_count % vid_stride != 0:
+                self.frame_count += 1
+                continue
+            
+            detections = yolo(frame, conf=conf, iou=iou, device=str(device), 
+                            classes=classes, imgsz=imgsz, verbose=True)[0]
+            
+            if hasattr(detections, 'boxes') and detections.boxes is not None and len(detections.boxes) > 0:
+                boxes = detections.boxes
+                
+                dets = np.column_stack((
+                    boxes.xyxy.cpu().numpy(),  # Bounding boxes (x1, y1, x2, y2)
+                    boxes.conf.cpu().numpy().reshape(-1, 1),  # Confidence scores
+                    boxes.cls.cpu().numpy().reshape(-1, 1)  # Class IDs
+                ))
+            else:
+                dets = np.empty((0, 6), dtype=np.float32)
+                
+            # Update the tracker
+            tracks = tracker.update(dets, frame)  # --> M X (x1, y1, x2, y2, id, conf, cls, ind)
+            
             frame_detections = []
             
-            if hasattr(result, 'boxes') and result.boxes is not None and len(result.boxes) > 0:
-                boxes = result.boxes
-                
-                if hasattr(boxes, 'id') and boxes.id is not None:
-                    for box, track_id in zip(boxes.xyxy, boxes.id):
-                        x1, y1, x2, y2 = box.tolist()
-                        bbox = [int(x1), int(y1), int(x2 - x1), int(y2 - y1)]
-                        track_id_int = int(track_id.item())
-                        
-                        detection = {
-                            "track_id": track_id_int,
-                            "bbox": bbox
-                        }
-                        frame_detections.append(detection)
-                        
-                        self.save_first_crop_only(track_id_int, bbox, result.orig_img)
-                        self.save_chunk_crop(track_id_int, bbox, result.orig_img, self.frame_count)
+            # Process tracking results
+            if len(tracks) > 0:
+                for track in tracks:
+                    x1, y1, x2, y2, track_id, track_conf, track_cls = track[:7]
+                    bbox = [int(x1), int(y1), int(x2 - x1), int(y2 - y1)]  # Convert to x, y, w, h
+                    track_id_int = int(track_id)
+                    
+                    detection = {
+                        "track_id": track_id_int,
+                        "bbox": bbox
+                    }
+                    frame_detections.append(detection)
+                    
+                    self.save_first_crop_only(track_id_int, bbox, frame)
+                    self.save_chunk_crop(track_id_int, bbox, frame, self.frame_count)
             
-            self.save_chunk_frame(result.orig_img, self.frame_count)
+            self.save_chunk_frame(frame, self.frame_count)
             
             if results_dir and frame_detections:
                 self.frame_results[self.frame_count] = {
@@ -242,6 +257,8 @@ class TrackingService:
                 }
             
             self.frame_count += 1
+        
+        cap.release()
         
         self.save_memory_to_disk(crops_dir, results_dir)
         

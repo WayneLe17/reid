@@ -57,6 +57,7 @@ class VideoProcessingService:
             
             # Step 1: Run tracking
             tracking_params = {
+                'video_path': video_path,
                 'crops_dir': str(crops_dir),
                 'results_dir': str(results_dir),
             }
